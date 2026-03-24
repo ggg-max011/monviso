@@ -539,7 +539,16 @@
 
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // iOS 13+ requires user gesture
+      // Se già concesso in precedenza, non mostrare il pulsante
+      if (localStorage.getItem('compassGranted') === 'yes') {
+        DeviceOrientationEvent.requestPermission().then(state => {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+          }
+        }).catch(() => {});
+        return;
+      }
+      // Prima volta: mostra il pulsante
       const wrap = document.getElementById('compassBtnWrap');
       const btn = document.createElement('button');
       btn.textContent = 'Attiva bussola';
@@ -558,6 +567,7 @@
       btn.addEventListener('click', () => {
         DeviceOrientationEvent.requestPermission().then(state => {
           if (state === 'granted') {
+            localStorage.setItem('compassGranted', 'yes');
             window.addEventListener('deviceorientation', handleOrientation, true);
             wrap.innerHTML = '';
           }
