@@ -391,6 +391,7 @@
     <div class="loading-ring" id="loadingRing"></div>
     <div class="status-msg" id="statusMsg">Ricerca posizione GPS…</div>
   </div>
+  <div id="compassBtnWrap" style="position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:10;"></div>
 </div>
 
 <script>
@@ -539,26 +540,26 @@
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
       // iOS 13+ requires user gesture
+      const wrap = document.getElementById('compassBtnWrap');
       const btn = document.createElement('button');
       btn.textContent = 'Attiva bussola';
       btn.style.cssText = `
-        margin-top:14px;
         background:transparent;
         border:1px solid rgba(168,191,204,0.3);
         color:var(--snow);
         font-family:'Cormorant Garamond',serif;
-        font-size:0.9rem;
+        font-size:1rem;
         letter-spacing:0.18em;
-        padding:10px 22px;
+        padding:12px 28px;
         cursor:pointer;
         border-radius:2px;
       `;
-      infoEl.appendChild(btn);
+      wrap.appendChild(btn);
       btn.addEventListener('click', () => {
         DeviceOrientationEvent.requestPermission().then(state => {
           if (state === 'granted') {
             window.addEventListener('deviceorientation', handleOrientation, true);
-            btn.remove();
+            wrap.innerHTML = '';
           }
         }).catch(() => {});
       });
