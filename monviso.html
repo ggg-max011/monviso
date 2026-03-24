@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Monviso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --stone:    #1a1c1e;
+    --granite:  #252729;
+    --slate:    #35393d;
+    --fog:      #8a9099;
+    --snow:     #e8e4dc;
+    --gold:     #b8976a;
+    --ice:      #a8bfcc;
+    --danger:   #c0392b;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--stone);
+    color: var(--snow);
+    font-family: 'Cormorant Garamond', serif;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.6;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    padding: 48px 24px 40px;
+    position: relative;
+  }
+
+  /* Mountain silhouette background */
+  .mountain-bg {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 45%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .mountain-bg svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    z-index: 1;
+    animation: fadeDown 1.2s ease both;
+  }
+
+  .title {
+    font-size: clamp(2.2rem, 8vw, 3.2rem);
+    font-weight: 300;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--snow);
+    line-height: 1;
+  }
+
+  .subtitle {
+    font-size: clamp(0.7rem, 3vw, 0.85rem);
+    letter-spacing: 0.25em;
+    color: var(--fog);
+    margin-top: 6px;
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  /* Compass area */
+  .compass-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    animation: fadeIn 1.6s ease both 0.3s;
+  }
+
+  .compass-ring {
+    width: min(72vw, 320px);
+    height: min(72vw, 320px);
+    border-radius: 50%;
+    border: 1px solid rgba(168,191,204,0.18);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      0 0 0 8px rgba(26,28,30,0.6),
+      0 0 60px rgba(0,0,0,0.5),
+      inset 0 0 40px rgba(0,0,0,0.3);
+    background: radial-gradient(ellipse at center,
+      rgba(53,57,61,0.4) 0%,
+      rgba(26,28,30,0.8) 70%,
+      rgba(26,28,30,0.95) 100%
+    );
+  }
+
+  /* Tick marks */
+  .compass-ring::before {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(168,191,204,0.08);
+  }
+
+  .ticks {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+  }
+
+  .tick {
+    position: absolute;
+    width: 1px;
+    left: 50%;
+    transform-origin: bottom center;
+    background: rgba(168,191,204,0.25);
+  }
+
+  .tick.major {
+    background: rgba(168,191,204,0.5);
+    width: 1.5px;
+  }
+
+  /* Cardinal labels */
+  .cardinals {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .cardinal {
+    position: absolute;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(0.55rem, 2vw, 0.7rem);
+    color: rgba(138,144,153,0.6);
+    letter-spacing: 0.1em;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Needle */
+  .needle-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease-out;
+  }
+
+  .needle {
+    position: relative;
+    width: 3px;
+    height: 78%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .needle-top {
+    flex: 1.2;
+    width: 100%;
+    background: linear-gradient(to top, var(--gold) 0%, #d4b483 60%, #f0deb8 100%);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+    filter: drop-shadow(0 0 8px rgba(184,151,106,0.6));
+  }
+
+  .needle-bottom {
+    flex: 1;
+    width: 100%;
+    background: linear-gradient(to bottom, var(--slate) 0%, #1a1c1e 100%);
+    clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+  }
+
+  .needle-center {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--snow);
+    border: 2px solid var(--gold);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    box-shadow: 0 0 8px rgba(184,151,106,0.5);
+  }
+
+  /* Peak label above needle */
+  .peak-label {
+    position: absolute;
+    top: 11%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .peak-label span {
+    font-size: clamp(0.55rem, 2vw, 0.65rem);
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    opacity: 0.85;
+    font-style: italic;
+    text-transform: uppercase;
+  }
+
+  /* Info row */
+  .info {
+    z-index: 1;
+    text-align: center;
+    animation: fadeUp 1.4s ease both 0.5s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .distance-block {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .distance-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(2.4rem, 10vw, 3.8rem);
+    font-weight: 400;
+    color: var(--snow);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .distance-unit {
+    font-size: clamp(0.8rem, 3vw, 1rem);
+    color: var(--fog);
+    font-weight: 300;
+    letter-spacing: 0.1em;
+  }
+
+  .bearing-line {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(0.65rem, 2.5vw, 0.8rem);
+    color: var(--fog);
+    letter-spacing: 0.2em;
+  }
+
+  .status-msg {
+    font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+    color: var(--fog);
+    font-style: italic;
+    letter-spacing: 0.1em;
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.5;
+  }
+
+  .status-msg.error {
+    color: #e07070;
+  }
+
+  /* Elevation badge */
+  .elev-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    border: 1px solid rgba(168,191,204,0.12);
+    border-radius: 2px;
+    background: rgba(53,57,61,0.3);
+  }
+
+  .elev-badge .label {
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
+    color: var(--fog);
+    text-transform: uppercase;
+  }
+
+  .elev-badge .value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--ice);
+    letter-spacing: 0.08em;
+  }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-ring {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid rgba(168,191,204,0.15);
+    border-top-color: var(--gold);
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Mountain silhouette background -->
+<div class="mountain-bg">
+  <svg viewBox="0 0 800 360" preserveAspectRatio="xMidYMax meet" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="mtGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#2a2d31" stop-opacity="0.85"/>
+        <stop offset="100%" stop-color="#1a1c1e" stop-opacity="1"/>
+      </linearGradient>
+    </defs>
+    <!-- Far range -->
+    <polygon points="0,360 0,210 60,180 120,200 180,150 240,170 300,110 360,140 410,90 460,120 520,80 570,105 630,65 680,95 740,50 800,80 800,360"
+      fill="rgba(35,38,42,0.6)"/>
+    <!-- Monviso peak (prominent, center-right) -->
+    <polygon points="0,360 0,250 80,240 160,230 220,220 280,215 340,210 400,240 460,200 500,170 530,140 545,110 555,85 565,110 578,140 610,165 650,185 700,200 760,215 800,220 800,360"
+      fill="url(#mtGrad)"/>
+    <!-- Snow patches on Monviso -->
+    <polygon points="545,110 537,130 548,125 558,130 555,110" fill="rgba(232,228,220,0.12)"/>
+    <polygon points="555,85 548,105 555,100 563,105 560,88" fill="rgba(232,228,220,0.18)"/>
+  </svg>
+</div>
+
+<div id="app">
+  <div class="header">
+    <div class="title">Monviso</div>
+    <div class="subtitle">3&thinsp;841&thinsp;m — Re di Pietra</div>
+  </div>
+
+  <div class="compass-wrap">
+    <div class="compass-ring" id="compassRing">
+      <!-- Tick marks drawn by JS -->
+      <div class="ticks" id="ticks"></div>
+      <div class="cardinals" id="cardinals"></div>
+
+      <div class="needle-wrap" id="needleWrap">
+        <div class="needle">
+          <div class="needle-top"></div>
+          <div class="needle-center"></div>
+          <div class="needle-bottom"></div>
+        </div>
+        <div class="peak-label"><span>▲ Monviso</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info" id="info">
+    <div class="loading-ring" id="loadingRing"></div>
+    <div class="status-msg" id="statusMsg">Ricerca posizione GPS…</div>
+  </div>
+</div>
+
+<script>
+  // ── Constants ──────────────────────────────────────────
+  const MONVISO = { lat: 44.6694, lon: 7.0894 };
+
+  // ── Build tick marks ───────────────────────────────────
+  const ticksEl = document.getElementById('ticks');
+  const ring = document.getElementById('compassRing');
+  const R = ring.offsetWidth / 2;
+
+  for (let i = 0; i < 72; i++) {
+    const angle = i * 5;
+    const isMajor = angle % 45 === 0;
+    const height = isMajor ? 14 : 8;
+    const el = document.createElement('div');
+    el.className = 'tick' + (isMajor ? ' major' : '');
+    const rad = (angle - 90) * Math.PI / 180;
+    const cx = 50 + (R - height/2 - 2) / R * 50 * Math.cos(rad);
+    const cy = 50 + (R - height/2 - 2) / R * 50 * Math.sin(rad);
+    el.style.cssText = `
+      height:${height}px;
+      top:${cy}%;
+      left:${cx}%;
+      transform:translate(-50%,-50%) rotate(${angle}deg);
+    `;
+    ticksEl.appendChild(el);
+  }
+
+  // ── Cardinal labels ────────────────────────────────────
+  const cardinalsEl = document.getElementById('cardinals');
+  [['N',0],['E',90],['S',180],['O',270]].forEach(([lbl, deg]) => {
+    const rad = (deg - 90) * Math.PI / 180;
+    const pct = 42;
+    const cx = 50 + pct * Math.cos(rad);
+    const cy = 50 + pct * Math.sin(rad);
+    const el = document.createElement('div');
+    el.className = 'cardinal';
+    el.textContent = lbl;
+    el.style.left = cx + '%';
+    el.style.top  = cy + '%';
+    cardinalsEl.appendChild(el);
+  });
+
+  // ── Geo math ───────────────────────────────────────────
+  function toRad(d) { return d * Math.PI / 180; }
+
+  function bearing(lat1, lon1, lat2, lon2) {
+    const dLon = toRad(lon2 - lon1);
+    const φ1 = toRad(lat1), φ2 = toRad(lat2);
+    const y = Math.sin(dLon) * Math.cos(φ2);
+    const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(dLon);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  function distance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // ── State ──────────────────────────────────────────────
+  let userPos = null;
+  let compassHeading = null;
+  let monvisoBearing = null;
+  let monvisoDistance = null;
+  let orientationGranted = false;
+
+  const needleWrap = document.getElementById('needleWrap');
+  const infoEl     = document.getElementById('info');
+  const statusMsg  = document.getElementById('statusMsg');
+  const loadingRing = document.getElementById('loadingRing');
+
+  // ── Render ─────────────────────────────────────────────
+  function render() {
+    if (!userPos) return;
+
+    loadingRing.style.display = 'none';
+
+    const dist = monvisoDistance.toFixed(1);
+    const brg  = Math.round(monvisoBearing);
+
+    infoEl.innerHTML = `
+      <div class="distance-block">
+        <span class="distance-num">${dist}</span>
+        <span class="distance-unit">km</span>
+      </div>
+      <div class="bearing-line">${brg}° azimut vero</div>
+      <div class="elev-badge">
+        <span class="label">Quota</span>
+        <span class="value">3 841 m</span>
+      </div>
+      ${compassHeading === null ? `<div class="status-msg">Rotazione ago: orienta il telefono</div>` : ''}
+    `;
+
+    // Rotate needle
+    let rot;
+    if (compassHeading !== null) {
+      rot = monvisoBearing - compassHeading;
+    } else {
+      // No compass: point to geographic bearing from North = top
+      rot = monvisoBearing;
+    }
+    needleWrap.style.transform = `rotate(${rot}deg)`;
+  }
+
+  // ── GPS ────────────────────────────────────────────────
+  function onPosition(pos) {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    userPos = { lat, lon };
+    monvisoBearing  = bearing(lat, lon, MONVISO.lat, MONVISO.lon);
+    monvisoDistance = distance(lat, lon, MONVISO.lat, MONVISO.lon);
+    render();
+    requestOrientation();
+  }
+
+  function onGeoError(err) {
+    loadingRing.style.display = 'none';
+    statusMsg.className = 'status-msg error';
+    statusMsg.textContent = 'GPS non disponibile. Controlla i permessi di localizzazione.';
+  }
+
+  navigator.geolocation.watchPosition(onPosition, onGeoError, {
+    enableHighAccuracy: true,
+    maximumAge: 5000
+  });
+
+  // ── Orientation / Compass ──────────────────────────────
+  function handleOrientation(e) {
+    // webkitCompassHeading → iOS (magnetic north, degrees CW)
+    // alpha on Android (rotation about z axis; needs converting)
+    if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
+      compassHeading = e.webkitCompassHeading;
+    } else if (e.alpha !== null) {
+      compassHeading = (360 - e.alpha) % 360;
+    }
+    if (userPos) render();
+  }
+
+  function requestOrientation() {
+    if (orientationGranted) return;
+    orientationGranted = true;
+
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iOS 13+ requires user gesture
+      const btn = document.createElement('button');
+      btn.textContent = 'Attiva bussola';
+      btn.style.cssText = `
+        margin-top:14px;
+        background:transparent;
+        border:1px solid rgba(168,191,204,0.3);
+        color:var(--snow);
+        font-family:'Cormorant Garamond',serif;
+        font-size:0.9rem;
+        letter-spacing:0.18em;
+        padding:10px 22px;
+        cursor:pointer;
+        border-radius:2px;
+      `;
+      infoEl.appendChild(btn);
+      btn.addEventListener('click', () => {
+        DeviceOrientationEvent.requestPermission().then(state => {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+            btn.remove();
+          }
+        }).catch(() => {});
+      });
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+  }
+</script>
+</body>
+</html>
